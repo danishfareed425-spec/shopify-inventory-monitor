@@ -32,20 +32,16 @@ interface Product {
   variants: Variant[];
 }
 
-// Helper function to extract numeric ID from Shopify GID
 function extractProductId(productId: string): string {
-  // If it's already a number, return as is
   if (/^\d+$/.test(productId)) {
     return productId;
   }
   
-  // Extract from GID format: gid://shopify/Product/8672895959238
   const match = productId.match(/gid:\/\/shopify\/Product\/(\d+)/);
   if (match && match[1]) {
     return match[1];
   }
   
-  // If no match, return as is and let it fail naturally
   return productId;
 }
 
@@ -66,21 +62,16 @@ Deno.serve(async (req: Request) => {
       const payload: InventoryChangePayload = await req.json();
       let { shop_domain, product_id, percentage_increase, in_stock_threshold } = payload;
 
-      // Default values if not provided
       const percentageIncrease = percentage_increase || 50;
       const stockThreshold = in_stock_threshold || 2;
 
-      // Clean shop domain (remove https:// if present)
       shop_domain = shop_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
       
-      // Extract numeric product ID from GID if needed
       const numericProductId = extractProductId(product_id);
 
-      // Try to find shop with multiple domain formats
       let shopData: { shop_domain: string; access_token: string } | null = null;
       let actualShopDomain = shop_domain;
       
-      // Try 1: Exact match
       const { data: data1 } = await supabase
         .from('shopify_shops')
         .select('shop_domain, access_token')
@@ -92,10 +83,8 @@ Deno.serve(async (req: Request) => {
         shopData = data1;
         actualShopDomain = data1.shop_domain;
       } else {
-        // Try 2: If domain doesn't end with .myshopify.com, try adding it
         if (!shop_domain.includes('.myshopify.com')) {
-          // If it's something like "gearlockerla.com", try "gearlockerla.myshopify.com"
-          const baseDomain = shop_domain.replace(/\.[^.]+$/, ''); // Remove .com
+          const baseDomain = shop_domain.replace(/\.[^.]+$/, '');
           const myshopifyDomain = `${baseDomain}.myshopify.com`;
           
           const { data: data2 } = await supabase
@@ -111,9 +100,8 @@ Deno.serve(async (req: Request) => {
           }
         }
         
-        // Try 3: Search for shops where the domain contains part of the provided domain
         if (!shopData) {
-          const searchTerm = shop_domain.split('.')[0]; // Get "gearlockerla" from "gearlockerla.com"
+          const searchTerm = shop_domain.split('.')[0];
           const { data: data3 } = await supabase
             .from('shopify_shops')
             .select('shop_domain, access_token')
@@ -176,7 +164,6 @@ Deno.serve(async (req: Request) => {
       const productData: { product: Product } = await shopifyResponse.json();
       const variants = productData.product.variants || [];
 
-      // Log for debugging
       console.log('Product data fetched:', {
         productId: numericProductId,
         variantsCount: variants.length,
@@ -187,15 +174,12 @@ Deno.serve(async (req: Request) => {
         (variant) => variant.inventory_quantity > 0
       ).length;
 
-      // If in-stock count is at or below threshold, update compare_at_price for all variants
       let pricingUpdated = false;
       if (inStockCount <= stockThreshold) {
         console.log(`Low stock detected (${inStockCount} <= ${stockThreshold}). Updating compare_at_price with ${percentageIncrease}% increase...`);
         
-        // Calculate multiplier from percentage (e.g., 50% = 1.5, 20% = 1.2)
         const multiplier = 1 + (percentageIncrease / 100);
         
-        // Update all variants with compare_at_price based on percentage
         const updatePromises = variants.map(async (variant) => {
           const originalPrice = parseFloat(variant.price || '0');
           const compareAtPrice = (originalPrice * multiplier).toFixed(2);
@@ -231,19 +215,16 @@ Deno.serve(async (req: Request) => {
           }
         });
         
-        // Wait for all updates to complete
         const results = await Promise.all(updatePromises);
         pricingUpdated = results.some(result => result === true);
         
         console.log(`Pricing update completed. ${results.filter(r => r).length}/${results.length} variants updated successfully.`);
       }
 
-      // Get first variant for price display (or average prices)
       const firstVariant = variants[0];
       const samplePrice = firstVariant?.price || '0';
       const sampleCompareAtPrice = firstVariant?.compare_at_price || 'Not Set';
 
-      // Return just the in-stock count as plain text for easy use in Shopify Flow
       const inStockCountText = inStockCount.toString();
 
       return new Response(inStockCountText, {
@@ -251,7 +232,6 @@ Deno.serve(async (req: Request) => {
         headers: {
           ...corsHeaders,
           'Content-Type': 'text/plain',
-          // Also include all data in custom headers for reference
           'X-Product-Id': numericProductId,
           'X-Total-Variants': variants.length.toString(),
           'X-In-Stock-Count': inStockCount.toString(),
