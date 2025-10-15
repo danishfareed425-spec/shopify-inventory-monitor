@@ -1,0 +1,44 @@
+api_version = "2024-01"
+type = "flow_action"
+name = "inventory-monitor-action"
+handle = "inventory-monitor-action"
+
+[extension_points.action]
+title = "Variants Inventory Check & Compare At Price Update"
+description = "Monitors product inventory and automatically adjusts compare at price when stock is low"
+
+[[extension_points.action.input]]
+name = "product_id"
+type = "product_reference"
+required = true
+label = "Product"
+description = "The product to check inventory for"
+
+[[extension_points.action.input]]
+name = "percentage_increase"
+type = "number"
+required = true
+label = "Compare At Price Increase (%)"
+description = "Percentage to increase compare at price (e.g., 50 for 50% markup)"
+default = 50
+
+[[extension_points.action.input]]
+name = "in_stock_threshold"
+type = "number"
+required = true
+label = "In Stock Threshold"
+description = "Update pricing when in-stock variants count is at or below this number"
+default = 2
+
+[[extension_points.action.output]]
+name = "in_stock_count"
+type = "number"
+label = "In Stock Count"
+description = "Number of variants currently in stock"
+
+[[extension_points.action.output]]
+name = "pricing_updated"
+type = "boolean"
+label = "Pricing Updated"
+description = "Whether pricing was automatically updated"
+
